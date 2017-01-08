@@ -1,25 +1,20 @@
-goexif
-======
+goexif2
+=======
 
-Provides decoding of basic exif and tiff encoded data. This project is a fork of `rwcarlsen/goexif` with
- many PR and patches integrated.
-Suggestions and pull requests are welcome.  Functionality is split into two packages - "exif" and "tiff"
-The exif package depends on the tiff package.
-Documentation can be found at http://godoc.org/github.com/xor-gate/goexif2
+Provides decoding of basic exif and tiff encoded data. It is written in pure Golang without dependencies to libexif.
+ Libexif requires CGO and a C compiler (which is not so easy on windows builds).
 
-To install, in a terminal type:
+This project is a fork of `rwcarlsen/goexif` with many PR and patches integrated. Many people forked the repo
+ and did some local changes which where not merged back to the original authors repository. That is why goexif2 
+ was born.
 
-```
-go get github.com/xor-gate/goexif2/exif
-```
-
-Or if you just want the tiff package:
+## Install ##
 
 ```
-go get github.com/xor-gate/goexif2/tiff
+go get github.com/xor-gate/goexif2
 ```
 
-Example usage:
+## Example ##
 
 ```go
 package main
