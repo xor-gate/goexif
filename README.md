@@ -1,12 +1,11 @@
 goexif
 ======
 
-Provides decoding of basic exif and tiff encoded data. Still in alpha - no guarantees.
+Provides decoding of basic exif and tiff encoded data. This project is a fork of `rwcarlsen/goexif` with
+ many PR and patches integrated.
 Suggestions and pull requests are welcome.  Functionality is split into two packages - "exif" and "tiff"
-The exif package depends on the tiff package. 
-Documentation can be found at http://godoc.org/github.com/rwcarlsen/goexif
-
-Like goexif? - Bitcoin tips welcome: 17M7LFh3ETz4bz83VikB7xuGQskt8K5Lj4
+The exif package depends on the tiff package.
+Documentation can be found at http://godoc.org/github.com/xor-gate/goexif2
 
 To install, in a terminal type:
 

@@ -6,9 +6,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/rwcarlsen/goexif/exif"
-	"github.com/rwcarlsen/goexif/mknote"
-	"github.com/rwcarlsen/goexif/tiff"
+	"github.com/xor-gate/goexif2/exif"
+	"github.com/xor-gate/goexif2/mknote"
+	"github.com/xor-gate/goexif2/tiff"
 )
 
 var mnote = flag.Bool("mknote", false, "try to parse makernote data")
