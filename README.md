@@ -1,11 +1,15 @@
-goexif
-======
+goexif2
+=======
+
+[![License][License-Image]][License-Url]
+[![Godoc][Godoc-Image]][Godoc-Url]
+[![ReportCard][ReportCard-Image]][ReportCard-Url]
+[![Build][Build-Status-Image]][Build-Status-Url]
 
 Provides decoding of basic exif and tiff encoded data. This project is a fork of `rwcarlsen/goexif` with
  many PR and patches integrated.
 Suggestions and pull requests are welcome.  Functionality is split into two packages - "exif" and "tiff"
 The exif package depends on the tiff package.
-Documentation can be found at http://godoc.org/github.com/xor-gate/goexif2
 
 To install, in a terminal type:
 
@@ -65,3 +69,16 @@ func ExampleDecode() {
 	fmt.Println("lat, long: ", lat, ", ", long)
 }
 ```
+
+## License
+
+[2-Clause BSD](LICENSE)
+
+[License-Url]: https://opensource.org/licenses/BSD-2-Clause
+[License-Image]: https://img.shields.io/badge/license-2%20Clause%20BSD-blue.svg?maxAge=2592000
+[Build-Status-Url]: http://travis-ci.org/xor-gate/goexif2
+[Build-Status-Image]: https://travis-ci.org/xor-gate/goexif2.svg?branch=master
+[Godoc-Url]: https://godoc.org/github.com/xor-gate/goexif2
+[Godoc-Image]: https://godoc.org/github.com/xor-gate/goexif2?status.svg
+[ReportCard-Url]: https://goreportcard.com/report/github.com/xor-gate/goexif2
+[ReportCard-Image]: https://goreportcard.com/badge/github.com/xor-gate/goexif2
