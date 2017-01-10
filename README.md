@@ -8,22 +8,26 @@ goexif2
 
 Provides decoding of basic exif and tiff encoded data. This project is a fork of `rwcarlsen/goexif` with
  many PR and patches integrated.
-Suggestions and pull requests are welcome.  Functionality is split into two packages - "exif" and "tiff"
-The exif package depends on the tiff package.
+Suggestions and pull requests are welcome.  
 
-To install, in a terminal type:
+## Installation
+
+To install the exif extraction cli tool, in a terminal type:
+
+```
+go install github.com/xor-gate/goexif2/cmd/goexif2
+goexif2 <file>.jpg
+```
+
+Functionality is split into two packages - "exif" and "tiff"
+The exif package depends on the tiff package.
 
 ```
 go get github.com/xor-gate/goexif2/exif
-```
-
-Or if you just want the tiff package:
-
-```
 go get github.com/xor-gate/goexif2/tiff
 ```
 
-Example usage:
+## Example
 
 ```go
 package main
