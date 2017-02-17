@@ -89,6 +89,11 @@ const (
 	SubjectDistanceRange                 = "SubjectDistanceRange"
 	LensMake                             = "LensMake"
 	LensModel                            = "LensModel"
+
+	JpegFromRawFormat                    = "JpegFromRawFormat"
+	JpegFromRawFormatLength              = "JpegFromRawFormatLength"
+	PreviewImageStart                    = "PreviewImageStart"
+	PreviewImageLength                   = "PreviewImageLength"
 )
 
 // thumbnail fields
@@ -148,8 +153,10 @@ var exifFields = map[uint16]FieldName{
 	0x0102: BitsPerSample,
 	0x0103: Compression,
 	0x0106: PhotometricInterpretation,
+	0x0111: PreviewImageStart,
 	0x0112: Orientation,
 	0x0115: SamplesPerPixel,
+	0x0117: PreviewImageLength,
 	0x011C: PlanarConfiguration,
 	0x0212: YCbCrSubSampling,
 	0x0213: YCbCrPositioning,
@@ -164,6 +171,8 @@ var exifFields = map[uint16]FieldName{
 	0x0110: Model,
 	0x0131: Software,
 	0x013B: Artist,
+	0x0201: JpegFromRawFormat,
+	0x0202: JpegFromRawFormatLength,
 	0x8298: Copyright,
 
 	// private tags
