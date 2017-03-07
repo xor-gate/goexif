@@ -90,6 +90,7 @@ const (
 	LensMake                             = "LensMake"
 	LensModel                            = "LensModel"
 
+	// Embedded images fields
 	JpegFromRawFormat                    = "JpegFromRawFormat"
 	JpegFromRawFormatLength              = "JpegFromRawFormatLength"
 	PreviewImageStart                    = "PreviewImageStart"
