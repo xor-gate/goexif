@@ -590,19 +590,19 @@ func (x *Exif) String() string {
 // JpegThumbnail returns the jpeg thumbnail if it exists. If it doesn't exist,
 // TagNotPresentError will be returned
 func (x *Exif) JpegThumbnail() ([]byte, error) {
-	return getBytesFromTagOffsets(ThumbJPEGInterchangeFormat, ThumbJPEGInterchangeFormatLength)
+	return x.getBytesFromTagOffsets(ThumbJPEGInterchangeFormat, ThumbJPEGInterchangeFormatLength)
 }
 
 // PreviewImage returns the preview image if it exists. If it doesn't exist,
 // TagNotPresentError will be returned
 func (x *Exif) PreviewImage() ([]byte, error) {
-	return getBytesFromTagOffsets(PreviewImageStart, PreviewImageLength)
+	return x.getBytesFromTagOffsets(PreviewImageStart, PreviewImageLength)
 }
 
 // JpegFromRaw returns the jpeg from raw image if it exists. If it doesn't exist,
 // TagNotPresentError will be returned
 func (x *Exif) JpegFromRaw() ([]byte, error) {
-	return getBytesFromTagOffsets(JpegFromRawFormat, JpegFromRawFormatLength)
+	return x.getBytesFromTagOffsets(JpegFromRawFormat, JpegFromRawFormatLength)
 }
 
 // getBytesFromTagOffsets returns the bytes specified by the given start and length tag, if they exist.
