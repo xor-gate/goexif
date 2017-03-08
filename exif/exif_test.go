@@ -210,7 +210,7 @@ type stutteredReader struct {
 }
 
 func (r stutteredReader) Read(b []byte) (int, error) {
-	lr := &io.LimitedReader{r.R, r.N}
+	lr := &io.LimitedReader{R: r.R, N: r.N}
 	return lr.Read(b)
 }
 
