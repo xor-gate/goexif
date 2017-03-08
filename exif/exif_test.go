@@ -197,7 +197,7 @@ func TestZeroLengthTagError(t *testing.T) {
 	if err == nil {
 		t.Fatal("no error on bad exif data")
 	}
-	if !strings.Contains(err.Error(), "short read") {
+	if !strings.Contains(err.Error(), "exif: decode failed (tiff: recursive IFD)") {
 		t.Fatal("wrong error:", err.Error())
 	}
 }

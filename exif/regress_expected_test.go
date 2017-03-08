@@ -2113,6 +2113,9 @@ var regressExpected = map[string]map[FieldName]string{
 		XResolution:                      `"72/1"`,
 		YCbCrPositioning:                 `2`,
 		YResolution:                      `"72/1"`,
+		UserComment:                      `""`,
+		MakerNote:                        `""`,
+		SubjectDistanceRange:             `3`,
 	},
 	"FailedHash-NoDate-sep-remembory.jpg": map[FieldName]string{
 		Model:           `"MFC-7840W"`,
