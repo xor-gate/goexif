@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/vansante/goexif2/tiff"
+	"log"
 )
 
 const (
@@ -158,7 +159,7 @@ func IsInteroperabilityError(err error) bool {
 type tiffError int
 
 const (
-	loadExif             tiffError = iota
+	loadExif tiffError = iota
 	loadGPS
 	loadInteroperability
 )
@@ -282,16 +283,19 @@ func Decode(r tiff.ReadAtReaderSeeker) (*Exif, error) {
 		// *bytes.Reader.  We use TeeReader to get a copy of the bytes as a
 		// side-effect of tiff.Decode() doing its work.
 		tif, err = tiff.Decode(r)
+		if err != nil {
+			return nil, decodeError{cause: err}
+		}
 		rawReader = r
 	} else {
 		// Locate the JPEG APP1 header.
-		var jpegSec *appSec
-		jpegSec, err = newAppSec(jpeg_APP1, r, readOffset)
+		var sec *appSec
+		sec, err = newAppSec(jpeg_APP1, r, readOffset)
 		if err != nil {
 			return nil, err
 		}
 
-		readOffset = jpegSec.startOffset + int64(jpegSec.dataLength)
+		readOffset = sec.startOffset + int64(sec.dataLength)
 		_, err := r.Seek(readOffset, io.SeekStart)
 		if err != nil {
 			return nil, err
@@ -305,18 +309,14 @@ func Decode(r tiff.ReadAtReaderSeeker) (*Exif, error) {
 				comment = string(buf)
 			}
 		}
-		// Skip EXIF header.
-		readOffset = jpegSec.startOffset + 2 // Add 2 to skip the marker
-		rawReader = io.NewSectionReader(r, readOffset, int64(jpegSec.dataLength))
-		_, err = rawReader.Seek(readOffset, io.SeekStart)
+		rawReader, err = sec.exifReader(r)
 		if err != nil {
-			return nil, err
+			return nil, decodeError{cause: err}
 		}
 		tif, err = tiff.Decode(rawReader)
-	}
-
-	if err != nil {
-		return nil, decodeError{cause: err}
+		if err != nil {
+			return nil, decodeError{cause: err}
+		}
 	}
 
 	// build an exif structure from the tiff
@@ -667,6 +667,7 @@ func newAppSec(marker byte, r io.ReadSeeker, startOffset int64) (*appSec, error)
 			return app, err
 		}
 
+		app.startOffset++
 		if buf[0] == marker {
 			// Marker found, read the next 2 length bytes
 			dataLenBytes := make([]byte, 2)
@@ -674,21 +675,45 @@ func newAppSec(marker byte, r io.ReadSeeker, startOffset int64) (*appSec, error)
 			if err != nil {
 				return app, err
 			}
-			app.dataLength = int(binary.BigEndian.Uint16(dataLenBytes)) - 2
+			app.dataLength = int(binary.BigEndian.Uint16(dataLenBytes))
+			app.startOffset += 2 // Add 2 to skip the length bytes
 
 			// Offset and length set, return without errors
 			return app, nil
 		}
-		app.startOffset++
 	}
 
 	// This code can technically not be reached
 	return app, errors.New("marker not found")
 }
 
+var exifMarker = append([]byte("Exif"), 0x00, 0x00)
+
+func (app *appSec) exifReader(r tiff.ReadAtReaderSeeker) (tiff.ReadAtReaderSeeker, error) {
+	_, err := r.Seek(app.startOffset, io.SeekStart)
+	if err != nil {
+		return nil, err
+	}
+
+	headerBuf := make([]byte, 6)
+	n, err := io.ReadFull(r, headerBuf)
+	if err != nil {
+		return nil, err
+	}
+
+	// Skip the 2 marker bytes in comparison
+	if n < 6 || !bytes.Equal(headerBuf, exifMarker) {
+		log.Println(headerBuf, string(headerBuf), exifMarker, string(exifMarker))
+		return nil, errors.New("exif: failed to find exif intro marker")
+	}
+
+	rdr := io.NewSectionReader(r, app.startOffset+6, int64(app.dataLength)-6)
+	return rdr, nil
+}
+
 func (s *appSec) getBytes(r io.ReadSeeker) ([]byte, error) {
 	buf := make([]byte, s.dataLength)
-	_, err := r.Seek(s.startOffset+2, io.SeekStart) // Add 2 to skip the marker
+	_, err := r.Seek(s.startOffset, io.SeekStart) // Add 2 to skip the marker
 	if err != nil {
 		return buf, err
 	}

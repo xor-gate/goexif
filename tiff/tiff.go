@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 )
 
 // ReadAtReader is used when decoding Tiff tags and directories
@@ -71,7 +70,7 @@ func Decode(r ReadAtReaderSeeker) (*Tiff, error) {
 	prev := offset
 	for offset != 0 {
 		// seek to offset
-		_, err := r.Seek(int64(offset), os.SEEK_SET)
+		_, err := r.Seek(int64(offset), io.SeekStart)
 		if err != nil {
 			return nil, errors.New("tiff: seek to IFD failed")
 		}
@@ -136,7 +135,7 @@ func DecodeDir(r ReadAtReader, order binary.ByteOrder) (d *Dir, offset int32, er
 	// get offset to next ifd
 	err = binary.Read(r, order, &offset)
 	if err != nil {
-		return nil, 0, errors.New("tiff: falied to read offset to next IFD: " + err.Error())
+		return nil, 0, errors.New("tiff: failed to read offset to next IFD: " + err.Error())
 	}
 
 	return d, offset, nil
