@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/vansante/goexif2/tiff"
+	"github.com/xor-gate/goexif2/tiff"
 )
 
 const (

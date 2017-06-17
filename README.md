@@ -37,8 +37,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/vansante/goexif2/exif"
-	"github.com/vansante/goexif2/mknote"
+	"github.com/xor-gate/goexif2/exif"
+	"github.com/xor-gate/goexif2/mknote"
 )
 
 func ExampleDecode() {

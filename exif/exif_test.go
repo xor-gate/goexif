@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/vansante/goexif2/tiff"
+	"github.com/xor-gate/goexif2/tiff"
 )
 
 var dataDir = flag.String("test_data_dir", ".", "Directory where the data files for testing are located")
