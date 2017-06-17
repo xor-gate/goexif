@@ -213,7 +213,7 @@ func loadSubDir(x *Exif, ptr FieldName, fieldMap map[uint16]FieldName) error {
 		return nil
 	}
 
-	_, err = x.rawReader.Seek(offset, io.SeekStart)
+	_, err = x.rawReader.Seek(offset, 0)
 	if err != nil {
 		return fmt.Errorf("exif: seek to sub-IFD %s failed: %v", ptr, err)
 	}
@@ -258,7 +258,7 @@ func Decode(r tiff.ReadAtReaderSeeker) (*Exif, error) {
 	}
 
 	readOffset := int64(0)
-	_, err = r.Seek(readOffset, io.SeekStart)
+	_, err = r.Seek(readOffset, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -296,7 +296,7 @@ func Decode(r tiff.ReadAtReaderSeeker) (*Exif, error) {
 		}
 
 		readOffset = sec.startOffset + int64(sec.dataLength)
-		_, err := r.Seek(readOffset, io.SeekStart)
+		_, err := r.Seek(readOffset, 0)
 		if err != nil {
 			return nil, err
 		}
@@ -626,7 +626,7 @@ func (x *Exif) getBytesFromTagOffsets(startTagField, lengthTagField FieldName) (
 		return nil, err
 	}
 
-	_, err = x.rawReader.Seek(int64(start), io.SeekStart)
+	_, err = x.rawReader.Seek(int64(start), 0)
 	if err != nil {
 		return nil, err
 	}
@@ -692,7 +692,7 @@ func newAppSec(marker byte, r io.ReadSeeker, startOffset int64) (*appSec, error)
 var exifMarker = append([]byte("Exif"), 0x00, 0x00)
 
 func (app *appSec) exifReader(r tiff.ReadAtReaderSeeker) (tiff.ReadAtReaderSeeker, error) {
-	_, err := r.Seek(app.startOffset, io.SeekStart)
+	_, err := r.Seek(app.startOffset, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -714,7 +714,7 @@ func (app *appSec) exifReader(r tiff.ReadAtReaderSeeker) (tiff.ReadAtReaderSeeke
 
 func (s *appSec) getBytes(r io.ReadSeeker) ([]byte, error) {
 	buf := make([]byte, s.dataLength)
-	_, err := r.Seek(s.startOffset, io.SeekStart) // Add 2 to skip the marker
+	_, err := r.Seek(s.startOffset, 0)
 	if err != nil {
 		return buf, err
 	}

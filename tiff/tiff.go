@@ -70,7 +70,7 @@ func Decode(r ReadAtReaderSeeker) (*Tiff, error) {
 	prev := offset
 	for offset != 0 {
 		// seek to offset
-		_, err := r.Seek(int64(offset), io.SeekStart)
+		_, err := r.Seek(int64(offset), 0)
 		if err != nil {
 			return nil, errors.New("tiff: seek to IFD failed")
 		}

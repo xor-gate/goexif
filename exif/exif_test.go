@@ -241,7 +241,7 @@ func (r stutteredReader) Read(p []byte) (int, error) {
 }
 
 func (r stutteredReader) ReadAt(p []byte, off int64) (n int, err error) {
-	r.R.Seek(off, io.SeekStart)
+	r.R.Seek(off, 0)
 
 	lr := &io.LimitedReader{R: r.R, N: r.N}
 	return lr.Read(p)
