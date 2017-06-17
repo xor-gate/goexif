@@ -72,11 +72,6 @@ func BenchmarkDecode(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		for _, name := range names {
-			if !strings.HasSuffix(name, ".jpg") {
-				b.Logf("skipping non .jpg file %v", name)
-				continue
-			}
-
 			b.Logf("testing file %v", name)
 			f, err := os.Open(filepath.Join(fpath, name))
 			if err != nil {
