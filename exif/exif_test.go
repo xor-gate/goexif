@@ -205,13 +205,24 @@ func TestZeroLengthTagError(t *testing.T) {
 // stutteredReader makes sure that any call to Read only returns N number of
 // bytes at most.
 type stutteredReader struct {
-	R io.Reader
+	R tiff.ReadAtReaderSeeker
 	N int64
 }
 
-func (r stutteredReader) Read(b []byte) (int, error) {
+func (r stutteredReader) Read(p []byte) (int, error) {
 	lr := &io.LimitedReader{R: r.R, N: r.N}
-	return lr.Read(b)
+	return lr.Read(p)
+}
+
+func (r stutteredReader) ReadAt(p []byte, off int64) (n int, err error) {
+	r.R.Seek(off, io.SeekStart)
+
+	lr := &io.LimitedReader{R: r.R, N: r.N}
+	return lr.Read(p)
+}
+
+func (r stutteredReader) Seek(offset int64, whence int) (int64, error) {
+	return r.R.Seek(offset, whence)
 }
 
 func TestShortRead(t *testing.T) {

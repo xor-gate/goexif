@@ -8,9 +8,19 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 )
+
+// ReadAtReader is used when decoding Tiff tags and directories
+type ReadAtReader interface {
+	io.Reader
+	io.ReaderAt
+}
+
+type ReadAtReaderSeeker interface {
+	ReadAtReader
+	io.Seeker
+}
 
 // Tiff provides access to a decoded tiff data structure.
 type Tiff struct {
@@ -25,7 +35,7 @@ type Tiff struct {
 // reflects the structure and content of the tiff data. The first read from r
 // should be the first byte of the tiff-encoded data and not necessarily the
 // first byte of an os.File object.
-func Decode(r io.ReadSeeker) (*Tiff, error) {
+func Decode(r ReadAtReaderSeeker) (*Tiff, error) {
 	t := new(Tiff)
 
 	// read byte order
@@ -102,7 +112,7 @@ type Dir struct {
 // is the offset to the next IFD.  The first read from r should be at the first
 // byte of the IFD. ReadAt offsets should generally be relative to the
 // beginning of the tiff structure (not relative to the beginning of the IFD).
-func DecodeDir(r io.Reader, order binary.ByteOrder) (d *Dir, offset int32, err error) {
+func DecodeDir(r ReadAtReader, order binary.ByteOrder) (d *Dir, offset int32, err error) {
 	d = new(Dir)
 
 	// get num of tags in ifd
