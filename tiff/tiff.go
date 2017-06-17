@@ -8,13 +8,17 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 )
 
 // ReadAtReader is used when decoding Tiff tags and directories
 type ReadAtReader interface {
 	io.Reader
 	io.ReaderAt
+}
+
+type ReadAtReaderSeeker interface {
+	ReadAtReader
+	io.Seeker
 }
 
 // Tiff provides access to a decoded tiff data structure.
@@ -30,18 +34,13 @@ type Tiff struct {
 // reflects the structure and content of the tiff data. The first read from r
 // should be the first byte of the tiff-encoded data and not necessarily the
 // first byte of an os.File object.
-func Decode(r io.Reader) (*Tiff, error) {
-	data, err := ioutil.ReadAll(r)
-	if err != nil {
-		return nil, errors.New("tiff: could not read data")
-	}
-	buf := bytes.NewReader(data)
-
+func Decode(r ReadAtReaderSeeker) (*Tiff, error) {
 	t := new(Tiff)
 
 	// read byte order
 	bo := make([]byte, 2)
-	if _, err = io.ReadFull(buf, bo); err != nil {
+	_, err := io.ReadFull(r, bo)
+	if err != nil {
 		return nil, errors.New("tiff: could not read tiff byte order")
 	}
 	if string(bo) == "II" {
@@ -54,14 +53,14 @@ func Decode(r io.Reader) (*Tiff, error) {
 
 	// check for special tiff marker
 	var sp int16
-	err = binary.Read(buf, t.Order, &sp)
+	err = binary.Read(r, t.Order, &sp)
 	if err != nil || 42 != sp {
 		return nil, errors.New("tiff: could not find special tiff marker")
 	}
 
 	// load offset to first IFD
 	var offset int32
-	err = binary.Read(buf, t.Order, &offset)
+	err = binary.Read(r, t.Order, &offset)
 	if err != nil {
 		return nil, errors.New("tiff: could not read offset to first IFD")
 	}
@@ -71,17 +70,13 @@ func Decode(r io.Reader) (*Tiff, error) {
 	prev := offset
 	for offset != 0 {
 		// seek to offset
-		_, err := buf.Seek(int64(offset), 0)
+		_, err := r.Seek(int64(offset), 0)
 		if err != nil {
 			return nil, errors.New("tiff: seek to IFD failed")
 		}
 
-		if buf.Len() == 0 {
-			return nil, errors.New("tiff: seek offset after EOF")
-		}
-
 		// load the dir
-		d, offset, err = DecodeDir(buf, t.Order)
+		d, offset, err = DecodeDir(r, t.Order)
 		if err != nil {
 			return nil, err
 		}
@@ -140,7 +135,7 @@ func DecodeDir(r ReadAtReader, order binary.ByteOrder) (d *Dir, offset int32, er
 	// get offset to next ifd
 	err = binary.Read(r, order, &offset)
 	if err != nil {
-		return nil, 0, errors.New("tiff: falied to read offset to next IFD: " + err.Error())
+		return nil, 0, errors.New("tiff: failed to read offset to next IFD: " + err.Error())
 	}
 
 	return d, offset, nil
