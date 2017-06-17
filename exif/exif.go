@@ -3,20 +3,19 @@
 package exif
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/vansante/goexif2/tiff"
+	"os"
 )
 
 const (
@@ -46,7 +45,7 @@ func IsShortReadTagValueError(err error) bool {
 	return false
 }
 
-var flashDescriptions = map[int]string {
+var flashDescriptions = map[int]string{
 	0x0:  "No Flash",
 	0x1:  "Fired",
 	0x5:  "Fired, Return not detected",
@@ -205,7 +204,14 @@ func (p *parser) Parse(x *Exif) error {
 }
 
 func loadSubDir(x *Exif, ptr FieldName, fieldMap map[uint16]FieldName) error {
-	r := bytes.NewReader(x.Raw)
+	baseOffset := int64(0)
+	if x.jpegSec != nil {
+		baseOffset += x.jpegSec.startOffset + 2 // Add 2 to skip the marker
+	}
+	_, err := x.reader.Seek(baseOffset, os.SEEK_SET)
+	if err != nil {
+		return err
+	}
 
 	tag, err := x.Get(ptr)
 	if err != nil {
@@ -216,11 +222,11 @@ func loadSubDir(x *Exif, ptr FieldName, fieldMap map[uint16]FieldName) error {
 		return nil
 	}
 
-	_, err = r.Seek(offset, 0)
+	_, err = x.reader.Seek(baseOffset + offset, os.SEEK_SET)
 	if err != nil {
 		return fmt.Errorf("exif: seek to sub-IFD %s failed: %v", ptr, err)
 	}
-	subDir, _, err := tiff.DecodeDir(r, x.Tiff.Order)
+	subDir, _, err := tiff.DecodeDir(x.reader, x.Tiff.Order)
 	if err != nil {
 		return fmt.Errorf("exif: sub-IFD %s decode failed: %v", ptr, err)
 	}
@@ -232,7 +238,8 @@ func loadSubDir(x *Exif, ptr FieldName, fieldMap map[uint16]FieldName) error {
 type Exif struct {
 	Tiff    *tiff.Tiff
 	main    map[FieldName]*tiff.Tag
-	Raw     []byte
+	reader  io.ReadSeeker
+	jpegSec *appSec
 	// Contents of the JPEG COM segment (Comment).
 	Comment string
 }
@@ -244,7 +251,7 @@ type Exif struct {
 // parsers are not called.
 // The error can be inspected with functions such as IsCriticalError to
 // determine whether the returned object might still be usable.
-func Decode(r io.Reader) (*Exif, error) {
+func Decode(r io.ReadSeeker) (*Exif, error) {
 	// EXIF data in JPEG is stored in the APP1 marker. EXIF data uses the TIFF
 	// format to store data.
 	// If we're parsing a TIFF image, we don't need to strip away any data.
@@ -260,6 +267,12 @@ func Decode(r io.Reader) (*Exif, error) {
 		return nil, errors.New("exif: short read on header")
 	}
 
+	readOffset := int64(0)
+	_, err = r.Seek(readOffset, os.SEEK_SET)
+	if err != nil {
+		return nil, err
+	}
+
 	var isTiff bool
 	switch string(header) {
 	case "II*\x00":
@@ -272,48 +285,44 @@ func Decode(r io.Reader) (*Exif, error) {
 		// Not TIFF, assume JPEG
 	}
 
-	// Put the header bytes back into the reader.
-	r = io.MultiReader(bytes.NewReader(header), r)
-	var (
-		er  *bytes.Reader
-		tif *tiff.Tiff
-	)
-
+	var tif *tiff.Tiff
+	var jpegSec *appSec
 	var comment string
 	if isTiff {
 		// Functions below need the IFDs from the TIFF data to be stored in a
 		// *bytes.Reader.  We use TeeReader to get a copy of the bytes as a
 		// side-effect of tiff.Decode() doing its work.
-		b := &bytes.Buffer{}
-		tr := io.TeeReader(r, b)
-		tif, err = tiff.Decode(tr)
-		er = bytes.NewReader(b.Bytes())
+		tif, err = tiff.Decode(r)
 	} else {
 		// Locate the JPEG APP1 header.
-		var sec *appSec
-		sec, err = newAppSec(jpeg_APP1, r)
+		jpegSec, err = newAppSec(jpeg_APP1, r, readOffset)
 		if err != nil {
 			return nil, err
 		}
+
+		readOffset = jpegSec.startOffset + int64(jpegSec.dataLength)
+		_, err := r.Seek(readOffset, os.SEEK_SET)
+		if err != nil {
+			return nil, err
+		}
+
 		var desc *appSec
-		desc, err = newAppSec(jpeg_COM, r)
+		desc, err = newAppSec(jpeg_COM, r, readOffset)
 		if err == nil {
-			comment = string(desc.data)
+			buf, err := desc.getBytes(r)
+			if err != nil {
+				comment = string(buf)
+			}
 		}
-		// Strip away EXIF header.
-		er, err = sec.exifReader()
+		// Skip EXIF header.
+		readOffset = jpegSec.startOffset + 2 // Add 2 to skip the marker
+		_, err = r.Seek(readOffset, os.SEEK_SET)
 		if err != nil {
 			return nil, err
 		}
-		tif, err = tiff.Decode(er)
+		tif, err = tiff.Decode(r)
 	}
 
-	if err != nil {
-		return nil, decodeError{cause: err}
-	}
-
-	er.Seek(0, 0)
-	raw, err := ioutil.ReadAll(er)
 	if err != nil {
 		return nil, decodeError{cause: err}
 	}
@@ -321,8 +330,9 @@ func Decode(r io.Reader) (*Exif, error) {
 	// build an exif structure from the tiff
 	x := &Exif{
 		main:    map[FieldName]*tiff.Tag{},
+		reader:  r,
 		Tiff:    tif,
-		Raw:     raw,
+		jpegSec: jpegSec,
 		Comment: comment,
 	}
 
@@ -512,7 +522,7 @@ func tagDegrees(tag *tiff.Tag) (float64, error) {
 	case tiff.RatVal:
 		// The usual case, according to the Exif spec
 		// (http://www.kodak.com/global/plugins/acrobat/en/service/digCam/exifStandard2.pdf,
-		// sec 4.6.6, p. 52 et seq.)
+		// jpegSec 4.6.6, p. 52 et seq.)
 		v, err := parse3Rat2(tag)
 		if err != nil {
 			return 0.0, err
@@ -606,26 +616,40 @@ func (x *Exif) JpegFromRaw() ([]byte, error) {
 }
 
 // getBytesFromTagOffsets returns the bytes specified by the given start and length tag, if they exist.
-func (x *Exif) getBytesFromTagOffsets(startTag, lengthTag FieldName) ([]byte, error) {
-	offset, err := x.Get(startTag)
+func (x *Exif) getBytesFromTagOffsets(startTagField, lengthTagField FieldName) ([]byte, error) {
+	startTag, err := x.Get(startTagField)
 	if err != nil {
 		return nil, err
 	}
-	start, err := offset.Int(0)
-	if err != nil {
-		return nil, err
-	}
-
-	length, err := x.Get(lengthTag)
-	if err != nil {
-		return nil, err
-	}
-	l, err := length.Int(0)
+	start, err := startTag.Int(0)
 	if err != nil {
 		return nil, err
 	}
 
-	return x.Raw[start : start+l], nil
+	lengthTag, err := x.Get(lengthTagField)
+	if err != nil {
+		return nil, err
+	}
+	l, err := lengthTag.Int(0)
+	if err != nil {
+		return nil, err
+	}
+
+	offset := int64(start)
+	if x.jpegSec != nil {
+		offset += x.jpegSec.startOffset + 2 // Add 2 to skip the marker
+	}
+	_, err = x.reader.Seek(offset, os.SEEK_SET)
+	if err != nil {
+		return nil, err
+	}
+
+	buf := make([]byte, l)
+	_, err = io.ReadFull(x.reader, buf)
+	if err != nil {
+		return nil, err
+	}
+	return buf, nil
 }
 
 // MarshalJson implements the encoding/json.Marshaler interface providing output of
@@ -635,72 +659,55 @@ func (x Exif) MarshalJSON() ([]byte, error) {
 }
 
 type appSec struct {
-	marker byte
-	data   []byte
+	marker      byte
+	startOffset int64
+	dataLength  int
 }
 
 // newAppSec finds marker in r and returns the corresponding application data
 // section.
-func newAppSec(marker byte, r io.Reader) (*appSec, error) {
-	br := bufio.NewReader(r)
-	app := &appSec{marker: marker}
-	var dataLen int
+func newAppSec(marker byte, r io.ReadSeeker, startOffset int64) (*appSec, error) {
+	app := &appSec{
+		marker:      marker,
+		startOffset: startOffset,
+	}
 
+	buf := make([]byte, 1)
 	// seek to marker
-	for dataLen == 0 {
-		if _, err := br.ReadBytes(0xFF); err != nil {
-			return nil, err
-		}
-		c, err := br.ReadByte()
+	for {
+		_, err := r.Read(buf)
 		if err != nil {
-			return nil, err
-		} else if c != marker {
-			continue
+			return app, err
 		}
 
-		dataLenBytes := make([]byte, 2)
-		for k, _ := range dataLenBytes {
-			c, err := br.ReadByte()
+		if buf[0] == marker {
+			// Marker found, read the next 2 length bytes
+			dataLenBytes := make([]byte, 2)
+			_, err := io.ReadFull(r, dataLenBytes)
 			if err != nil {
-				return nil, err
+				return app, err
 			}
-			dataLenBytes[k] = c
+			app.dataLength = int(binary.BigEndian.Uint16(dataLenBytes)) - 2
+
+			// Offset and length set, return without errors
+			return app, nil
 		}
-		dataLen = int(binary.BigEndian.Uint16(dataLenBytes)) - 2
+		app.startOffset++
 	}
 
-	// read section data
-	nread := 0
-	for nread < dataLen {
-		s := make([]byte, dataLen-nread)
-		n, err := br.Read(s)
-		nread += n
-		if err != nil && nread < dataLen {
-			return nil, err
-		}
-		app.data = append(app.data, s[:n]...)
-	}
-	return app, nil
+	// This code can technically not be reached
+	return app, errors.New("marker not found")
 }
 
-// reader returns a reader on this appSec.
-func (app *appSec) reader() *bytes.Reader {
-	return bytes.NewReader(app.data)
-}
-
-// exifReader returns a reader on this appSec with the read cursor advanced to
-// the start of the exif's tiff encoded portion.
-func (app *appSec) exifReader() (*bytes.Reader, error) {
-	if len(app.data) < 6 {
-		return nil, errors.New("exif: failed to find exif intro marker")
+func (s *appSec) getBytes(r io.ReadSeeker) ([]byte, error) {
+	buf := make([]byte, s.dataLength)
+	_, err := r.Seek(s.startOffset+2, os.SEEK_SET) // Add 2 to skip the marker
+	if err != nil {
+		return buf, err
 	}
 
-	// read/check for exif special mark
-	exif := app.data[:6]
-	if !bytes.Equal(exif, append([]byte("Exif"), 0x00, 0x00)) {
-		return nil, errors.New("exif: failed to find exif intro marker")
-	}
-	return bytes.NewReader(app.data[6:]), nil
+	_, err = io.ReadFull(r, buf)
+	return buf, err
 }
 
 // Flash returns the descriptive text that corresponds to the flash value of the
