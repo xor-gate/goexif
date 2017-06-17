@@ -665,7 +665,7 @@ func newAppSec(marker byte, r io.ReadSeeker, startOffset int64) (*appSec, error)
 	for {
 		_, err := r.Read(buf)
 		if err != nil {
-			return app, err
+			return nil, err
 		}
 
 		app.startOffset++
@@ -675,19 +675,18 @@ func newAppSec(marker byte, r io.ReadSeeker, startOffset int64) (*appSec, error)
 			dataLenBytes := make([]byte, 2)
 			_, err := io.ReadFull(r, dataLenBytes)
 			if err != nil {
-				return app, err
+				return nil, err
 			}
 			app.dataLength = int(binary.BigEndian.Uint16(dataLenBytes)) - 2
 			app.startOffset += 2 // Add 2 to skip the length bytes
-			// Offset and length set, return without errors
-			return app, nil
+			// Offset and length set, break to return without errors
+			break
 		}
 
 		prevWasMarker = buf[0] == jpeg_MARKER
 	}
 
-	// This code can technically not be reached
-	return app, errors.New("marker not found")
+	return app, nil
 }
 
 var exifMarker = append([]byte("Exif"), 0x00, 0x00)
