@@ -15,12 +15,12 @@ import (
 	"time"
 
 	"github.com/vansante/goexif2/tiff"
-	"log"
 )
 
 const (
-	jpeg_APP1 = 0xE1
-	jpeg_COM  = 0xFE
+	jpeg_MARKER = 0xFF
+	jpeg_APP1   = 0xE1
+	jpeg_COM    = 0xFE
 
 	exifPointer    = 0x8769
 	gpsPointer     = 0x8825
@@ -159,7 +159,7 @@ func IsInteroperabilityError(err error) bool {
 type tiffError int
 
 const (
-	loadExif tiffError = iota
+	loadExif             tiffError = iota
 	loadGPS
 	loadInteroperability
 )
@@ -660,6 +660,7 @@ func newAppSec(marker byte, r io.ReadSeeker, startOffset int64) (*appSec, error)
 	}
 
 	buf := make([]byte, 1)
+	prevWasMarker := false
 	// seek to marker
 	for {
 		_, err := r.Read(buf)
@@ -668,19 +669,21 @@ func newAppSec(marker byte, r io.ReadSeeker, startOffset int64) (*appSec, error)
 		}
 
 		app.startOffset++
-		if buf[0] == marker {
+
+		if prevWasMarker && buf[0] == marker {
 			// Marker found, read the next 2 length bytes
 			dataLenBytes := make([]byte, 2)
 			_, err := io.ReadFull(r, dataLenBytes)
 			if err != nil {
 				return app, err
 			}
-			app.dataLength = int(binary.BigEndian.Uint16(dataLenBytes))
+			app.dataLength = int(binary.BigEndian.Uint16(dataLenBytes)) - 2
 			app.startOffset += 2 // Add 2 to skip the length bytes
-
 			// Offset and length set, return without errors
 			return app, nil
 		}
+
+		prevWasMarker = buf[0] == jpeg_MARKER
 	}
 
 	// This code can technically not be reached
@@ -703,7 +706,6 @@ func (app *appSec) exifReader(r tiff.ReadAtReaderSeeker) (tiff.ReadAtReaderSeeke
 
 	// Skip the 2 marker bytes in comparison
 	if n < 6 || !bytes.Equal(headerBuf, exifMarker) {
-		log.Println(headerBuf, string(headerBuf), exifMarker, string(exifMarker))
 		return nil, errors.New("exif: failed to find exif intro marker")
 	}
 
