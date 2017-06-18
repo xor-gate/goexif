@@ -58,6 +58,32 @@ func TestDecode(t *testing.T) {
 	}
 }
 
+func BenchmarkDecode(b *testing.B) {
+	fpath := filepath.Join(*dataDir, "samples")
+	f, err := os.Open(fpath)
+	if err != nil {
+		b.Fatalf("Could not open sample directory '%s': %v", fpath, err)
+	}
+
+	names, err := f.Readdirnames(0)
+	if err != nil {
+		b.Fatalf("Could not read sample directory '%s': %v", fpath, err)
+	}
+
+	for i := 0; i < b.N; i++ {
+		for _, name := range names {
+			b.Logf("testing file %v", name)
+			f, err := os.Open(filepath.Join(fpath, name))
+			if err != nil {
+				b.Fatal(err)
+			}
+			b.StartTimer()
+			Decode(f)
+			b.StopTimer()
+		}
+	}
+}
+
 type walker struct {
 	picName string
 	t       *testing.T
@@ -205,13 +231,24 @@ func TestZeroLengthTagError(t *testing.T) {
 // stutteredReader makes sure that any call to Read only returns N number of
 // bytes at most.
 type stutteredReader struct {
-	R io.Reader
+	R tiff.ReadAtReaderSeeker
 	N int64
 }
 
-func (r stutteredReader) Read(b []byte) (int, error) {
+func (r stutteredReader) Read(p []byte) (int, error) {
 	lr := &io.LimitedReader{R: r.R, N: r.N}
-	return lr.Read(b)
+	return lr.Read(p)
+}
+
+func (r stutteredReader) ReadAt(p []byte, off int64) (n int, err error) {
+	r.R.Seek(off, 0)
+
+	lr := &io.LimitedReader{R: r.R, N: r.N}
+	return lr.Read(p)
+}
+
+func (r stutteredReader) Seek(offset int64, whence int) (int64, error) {
+	return r.R.Seek(offset, whence)
 }
 
 func TestShortRead(t *testing.T) {

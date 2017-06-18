@@ -18,7 +18,7 @@ import (
 type Format int
 
 const (
-	IntVal Format = iota
+	IntVal    Format = iota
 	FloatVal
 	RatVal
 	StringVal
@@ -167,7 +167,6 @@ func DecodeTag(r ReadAtReader, order binary.ByteOrder) (*Tag, error) {
 			return t, ErrShortReadTagValue
 		}
 		t.Val = buff.Bytes()
-
 	} else {
 		val := make([]byte, valLen)
 		if _, err = io.ReadFull(r, val); err != nil {
