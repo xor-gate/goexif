@@ -27,8 +27,6 @@ const (
 	interopPointer = 0xA005
 )
 
-const APP_SEC_READ_BUFFER = 8 * 1024 // 8 KiB
-
 // A decodeError is returned when the image cannot be decoded as a tiff image.
 type decodeError struct {
 	cause error
@@ -161,7 +159,7 @@ func IsInteroperabilityError(err error) bool {
 type tiffError int
 
 const (
-	loadExif tiffError = iota
+	loadExif             tiffError = iota
 	loadGPS
 	loadInteroperability
 )
@@ -661,7 +659,7 @@ func newAppSec(marker byte, r io.ReadSeeker, startOffset int64) (*appSec, error)
 		startOffset: startOffset,
 	}
 
-	buf := make([]byte, APP_SEC_READ_BUFFER)
+	buf := make([]byte, 32*1024)
 	prevWasMarker := false
 	// seek to marker
 ReadLoop:
