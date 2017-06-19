@@ -91,10 +91,10 @@ const (
 	LensModel                            = "LensModel"
 
 	// Embedded images fields
-	JpegFromRawFormat                    = "JpegFromRawFormat"
-	JpegFromRawFormatLength              = "JpegFromRawFormatLength"
-	PreviewImageStart                    = "PreviewImageStart"
-	PreviewImageLength                   = "PreviewImageLength"
+	JpegFromRawFormat       = "JpegFromRawFormat"
+	JpegFromRawFormatLength = "JpegFromRawFormatLength"
+	PreviewImageStart       = "PreviewImageStart"
+	PreviewImageLength      = "PreviewImageLength"
 )
 
 // thumbnail fields
