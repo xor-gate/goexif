@@ -659,33 +659,41 @@ func newAppSec(marker byte, r io.ReadSeeker, startOffset int64) (*appSec, error)
 		startOffset: startOffset,
 	}
 
-	buf := make([]byte, 1)
+	buf := make([]byte, 32*1024)
 	prevWasMarker := false
 	// seek to marker
+ReadLoop:
 	for {
-		_, err := r.Read(buf)
-		if err != nil {
+		_, err := io.ReadFull(r, buf)
+		if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
 			return nil, err
 		}
 
-		app.startOffset++
+		for i := range buf {
+			app.startOffset++
 
-		if prevWasMarker && buf[0] == marker {
-			// Marker found, read the next 2 length bytes
-			dataLenBytes := make([]byte, 2)
-			_, err := io.ReadFull(r, dataLenBytes)
-			if err != nil {
-				return nil, err
+			if prevWasMarker && buf[i] == marker {
+				// Marker found
+				break ReadLoop
 			}
-			app.dataLength = int(binary.BigEndian.Uint16(dataLenBytes)) - 2
-			app.startOffset += 2 // Add 2 to skip the length bytes
-			// Offset and length set, break to return without errors
-			break
-		}
 
-		prevWasMarker = buf[0] == jpeg_MARKER
+			prevWasMarker = buf[i] == jpeg_MARKER
+		}
+		// If the ReadFull returned EOF, return
+		if err != nil {
+			return nil, err
+		}
 	}
 
+	dataLenBytes := make([]byte, 2)
+	r.Seek(startOffset, 0)
+	_, err := io.ReadFull(r, dataLenBytes)
+	if err != nil {
+		return nil, err
+	}
+	app.dataLength = int(binary.BigEndian.Uint16(dataLenBytes)) - 2
+	app.startOffset += 2 // Add 2 to skip the length bytes
+	// Offset and length set
 	return app, nil
 }
 
