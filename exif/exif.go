@@ -692,6 +692,9 @@ ReadLoop:
 		return nil, err
 	}
 	app.dataLength = int(binary.BigEndian.Uint16(dataLenBytes)) - 2
+	if app.dataLength <= 0 {
+		return nil, errors.New("jpeg section: invalid data length")
+	}
 	app.startOffset += 2 // Add 2 to skip the length bytes
 	// Offset and length set
 	return app, nil
