@@ -377,6 +377,14 @@ type Walker interface {
 	Walk(name FieldName, tag *tiff.Tag) error
 }
 
+// WalkerFunc is an adapter to allow the use of ordinary functions for Walk.
+type WalkerFunc func(name FieldName, tag *tiff.Tag) error
+
+// Walk calls f(name, tag)
+func (f WalkerFunc) Walk(name FieldName, tag *tiff.Tag) error {
+	return f(name, tag)
+}
+
 // Walk calls the Walk method of w with the name and tag for every non-nil
 // EXIF field.  If w aborts the walk with an error, that error is returned.
 func (x *Exif) Walk(w Walker) error {
