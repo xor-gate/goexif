@@ -141,6 +141,30 @@ func TestMarshal(t *testing.T) {
 	t.Logf("%s", b)
 }
 
+func TestMarshalIssue10(t *testing.T) {
+	name := "samples/2009-08-05-08-11-31-sep-2009-08-05-08-11-31a.jpg"
+	f, err := os.Open(name)
+	if err != nil {
+		t.Fatalf("%v\n", err)
+	}
+	defer f.Close()
+
+	x, err := Decode(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if x == nil {
+		t.Fatal("bad err")
+	}
+
+	b, err := x.MarshalJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("%s", b)
+}
+
 func testSingleParseDegreesString(t *testing.T, s string, w float64) {
 	g, err := parseTagDegreesString(s)
 	if err != nil {
