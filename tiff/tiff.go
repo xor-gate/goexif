@@ -5,7 +5,6 @@ package tiff
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 )
@@ -62,28 +61,28 @@ func Decode(r ReadAtReaderSeeker) (*Tiff, error) {
 	bo := make([]byte, 2)
 	_, err := io.ReadFull(r, bo)
 	if err != nil {
-		return nil, errors.New("tiff: could not read tiff byte order")
+		return nil, newTiffError("could not read tiff byte order", err)
 	}
 	if string(bo) == "II" {
 		t.Order = binary.LittleEndian
 	} else if string(bo) == "MM" {
 		t.Order = binary.BigEndian
 	} else {
-		return nil, errors.New("tiff: could not read tiff byte order")
+		return nil, newTiffError("could not read tiff byte order", nil)
 	}
 
 	// check for special tiff marker
 	var sp int16
 	err = binary.Read(r, t.Order, &sp)
 	if err != nil || 42 != sp {
-		return nil, errors.New("tiff: could not find special tiff marker")
+		return nil, newTiffError("could not find special tiff marker", err)
 	}
 
 	// load offset to first IFD
 	var offset int32
 	err = binary.Read(r, t.Order, &offset)
 	if err != nil {
-		return nil, errors.New("tiff: could not read offset to first IFD")
+		return nil, newTiffError("could not read offset to first IFD", err)
 	}
 
 	// load IFD's
@@ -93,7 +92,7 @@ func Decode(r ReadAtReaderSeeker) (*Tiff, error) {
 		// seek to offset
 		_, err := r.Seek(int64(offset), 0)
 		if err != nil {
-			return nil, errors.New("tiff: seek to IFD failed")
+			return nil, newTiffError("seek to IFD failed", err)
 		}
 
 		// load the dir
@@ -107,7 +106,7 @@ func Decode(r ReadAtReaderSeeker) (*Tiff, error) {
 		}
 
 		if offset == prev {
-			return nil, errors.New("tiff: recursive IFD")
+			return nil, newTiffError("recursive IFD", nil)
 		}
 		prev = offset
 
@@ -160,7 +159,7 @@ func DecodeDir(r ReadAtReader, order binary.ByteOrder) (d *Dir, offset int32, er
 	// get offset to next ifd
 	err = binary.Read(r, order, &offset)
 	if err != nil {
-		return nil, 0, errors.New("tiff: failed to read offset to next IFD: " + err.Error())
+		return nil, 0, newTiffError("failed to read offset to next IFD", err)
 	}
 
 	return d, offset, nil
