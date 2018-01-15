@@ -21,6 +21,27 @@ type ReadAtReaderSeeker interface {
 	io.Seeker
 }
 
+type TiffError struct {
+	Message string
+	// Underlying error
+	Err error
+}
+
+func newTiffError(msg string, err error) TiffError {
+	return TiffError{
+		Message: msg,
+		Err:     err,
+	}
+}
+
+func (t TiffError) Error() string {
+	if t.Err == nil {
+		return fmt.Sprintf("tiff: %s", t.Message)
+	} else {
+		return fmt.Sprintf("tiff: %s: %s", t.Message, t.Err.Error())
+	}
+}
+
 // Tiff provides access to a decoded tiff data structure.
 type Tiff struct {
 	// Dirs is an ordered slice of the tiff's Image File Directories (IFDs).
@@ -78,6 +99,10 @@ func Decode(r ReadAtReaderSeeker) (*Tiff, error) {
 		// load the dir
 		d, offset, err = DecodeDir(r, t.Order)
 		if err != nil {
+			if e, ok := err.(TiffError); ok && e.Err == io.EOF {
+				// Previous IFD had a pointer outside of the file. Ignore
+				continue
+			}
 			return nil, err
 		}
 
@@ -118,7 +143,7 @@ func DecodeDir(r ReadAtReader, order binary.ByteOrder) (d *Dir, offset int32, er
 	var nTags int16
 	err = binary.Read(r, order, &nTags)
 	if err != nil {
-		return nil, 0, errors.New("tiff: failed to read IFD tag count: " + err.Error())
+		return nil, 0, newTiffError("failed to read IFD tag count", err)
 	}
 
 	// load tags

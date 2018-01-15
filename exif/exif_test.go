@@ -228,6 +228,20 @@ func TestZeroLengthTagError(t *testing.T) {
 	}
 }
 
+func TestInvalidIFDOffset(t *testing.T) {
+	name := filepath.Join(*dataDir, "corrupt/invalid_ifd_offset.jpg")
+	f, err := os.Open(name)
+	if err != nil {
+		t.Fatalf("%v\n", err)
+	}
+	defer f.Close()
+
+	_, err = Decode(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 // stutteredReader makes sure that any call to Read only returns N number of
 // bytes at most.
 type stutteredReader struct {
