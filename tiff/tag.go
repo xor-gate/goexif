@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -18,7 +17,7 @@ import (
 type Format int
 
 const (
-	IntVal    Format = iota
+	IntVal Format = iota
 	FloatVal
 	RatVal
 	StringVal
@@ -27,8 +26,8 @@ const (
 )
 
 var (
-	ErrShortReadTagValue = errors.New("tiff: short read of tag value")
-	errUnhandledTagType  = errors.New("tiff: unhandled tag type")
+	ErrShortReadTagValue = newTiffError("short read of tag value", nil)
+	errUnhandledTagType  = newTiffError("unhandled tag type", nil)
 )
 
 var formatNames = map[Format]string{
@@ -123,23 +122,23 @@ func DecodeTag(r ReadAtReader, order binary.ByteOrder) (*Tag, error) {
 
 	err := binary.Read(r, order, &t.Id)
 	if err != nil {
-		return nil, errors.New("tiff: tag id read failed: " + err.Error())
+		return nil, newTiffError("tag id read failed", err)
 	}
 
 	err = binary.Read(r, order, &t.Type)
 	if err != nil {
-		return nil, errors.New("tiff: tag type read failed: " + err.Error())
+		return nil, newTiffError("tag type read failed", err)
 	}
 
 	err = binary.Read(r, order, &t.Count)
 	if err != nil {
-		return nil, errors.New("tiff: tag component count read failed: " + err.Error())
+		return nil, newTiffError("tag component count read failed", err)
 	}
 
 	// There seems to be a relatively common corrupt tag which has a Count of
 	// MaxUint32. This is probably not a valid value, so return early.
 	if t.Count == 1<<32-1 {
-		return t, errors.New("invalid Count offset in tag")
+		return t, newTiffError("invalid Count offset in tag", nil)
 	}
 
 	// Ignore the value/offset if we don't know about the size of the type.
@@ -147,7 +146,7 @@ func DecodeTag(r ReadAtReader, order binary.ByteOrder) (*Tag, error) {
 	if !ok {
 		var ignore [4]byte
 		if _, err = io.ReadFull(r, ignore[:]); err != nil {
-			return t, errors.New("tiff: unknown tag offset read failed: " + err.Error())
+			return t, newTiffError("unknown tag offset read failed", err)
 		}
 		return nil, errUnhandledTagType
 	}
@@ -162,7 +161,7 @@ func DecodeTag(r ReadAtReader, order binary.ByteOrder) (*Tag, error) {
 		sr := io.NewSectionReader(r, int64(t.ValOffset), int64(valLen))
 		n, err := io.Copy(&buff, sr)
 		if err != nil {
-			return t, errors.New("tiff: tag value read failed: " + err.Error())
+			return t, newTiffError("tag value read failed", err)
 		} else if n != int64(valLen) {
 			return t, ErrShortReadTagValue
 		}
@@ -170,11 +169,11 @@ func DecodeTag(r ReadAtReader, order binary.ByteOrder) (*Tag, error) {
 	} else {
 		val := make([]byte, valLen)
 		if _, err = io.ReadFull(r, val); err != nil {
-			return t, errors.New("tiff: tag offset read failed: " + err.Error())
+			return t, newTiffError("tag offset read failed", err)
 		}
 		// ignore padding.
 		if _, err = io.ReadFull(r, make([]byte, 4-valLen)); err != nil {
-			return t, errors.New("tiff: tag offset read failed: " + err.Error())
+			return t, newTiffError("tag offset read failed", err)
 		}
 
 		t.Val = val
@@ -332,7 +331,7 @@ func (t *Tag) typeErr(to Format) error {
 }
 
 // Rat returns the tag's i'th value as a rational number. It returns a nil and
-// an error if this tag's Format is not RatVal or has a zero denominator.  It 
+// an error if this tag's Format is not RatVal or has a zero denominator.  It
 // panics i is out of range.
 func (t *Tag) Rat(i int) (*big.Rat, error) {
 	n, d, err := t.Rat2(i)
@@ -340,7 +339,7 @@ func (t *Tag) Rat(i int) (*big.Rat, error) {
 		return nil, err
 	}
 	if d == 0 {
-		return nil, errors.New("rational has zero-valued denominator")
+		return nil, newTiffError("rational has zero-valued denominator", nil)
 	}
 	return big.NewRat(n, d), nil
 }
