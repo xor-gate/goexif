@@ -217,7 +217,7 @@ func loadSubDir(x *Exif, ptr FieldName, fieldMap map[uint16]FieldName) error {
 	if err != nil {
 		return fmt.Errorf("exif: seek to sub-IFD %s failed: %v", ptr, err)
 	}
-	subDir, _, err := tiff.DecodeDir(x.rawReader, x.Tiff.Order)
+	subDir, _, err := tiff.DecodeDir(x.rawReader, x.Tiff.Order, x.Tiff.IsBig)
 	if err != nil {
 		return fmt.Errorf("exif: sub-IFD %s decode failed: %v", ptr, err)
 	}
@@ -268,8 +268,14 @@ func Decode(r tiff.ReadAtReaderSeeker) (*Exif, error) {
 	case "II*\x00":
 		// TIFF - Little endian (Intel)
 		isTiff = true
+	case "II+\x00":
+		// BigTIFF - Little endian (Intel)
+		isTiff = true
 	case "MM\x00*":
 		// TIFF - Big endian (Motorola)
+		isTiff = true
+	case "MM\x00+":
+		// BigTIFF - Big endian (Motorola)
 		isTiff = true
 	default:
 		// Not TIFF, assume JPEG
@@ -509,7 +515,7 @@ func parse3Rat2(tag *tiff.Tag) ([3]float64, error) {
 			return v, err
 		}
 		v[i] = ratFloat(num, den)
-		if tag.Count < uint32(i+2) {
+		if tag.Count < uint64(i+2) {
 			break
 		}
 	}

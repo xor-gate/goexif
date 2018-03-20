@@ -23,7 +23,7 @@ type input struct {
 type output struct {
 	id    uint16
 	typ   DataType
-	count uint32
+	count uint64
 	val   []byte
 }
 
@@ -146,7 +146,7 @@ func TestDecodeTag(t *testing.T) {
 func testSingle(t *testing.T, order binary.ByteOrder, in input, out output, i int) {
 	data := buildInput(in, order)
 	buf := bytes.NewReader(data)
-	tg, err := DecodeTag(buf, order)
+	tg, err := DecodeTag(buf, order, false)
 	if err != nil {
 		t.Errorf("(%v) tag %v%+v decode failed: %v", order, i, in, err)
 		return
@@ -209,7 +209,7 @@ func TestDecode(t *testing.T) {
 func TestDecodeTag_blob(t *testing.T) {
 	buf := bytes.NewReader(data())
 	buf.Seek(10, 1)
-	tg, err := DecodeTag(buf, binary.LittleEndian)
+	tg, err := DecodeTag(buf, binary.LittleEndian, false)
 	if err != nil {
 		t.Fatalf("tag decode failed: %v", err)
 	}

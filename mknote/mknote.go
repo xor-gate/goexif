@@ -40,7 +40,7 @@ func (_ *canon) Parse(x *exif.Exif) error {
 	buf := bytes.NewReader(append(make([]byte, m.ValOffset), m.Val...))
 	buf.Seek(int64(m.ValOffset), 0)
 
-	mkNotesDir, _, err := tiff.DecodeDir(buf, x.Tiff.Order)
+	mkNotesDir, _, err := tiff.DecodeDir(buf, x.Tiff.Order, x.Tiff.IsBig)
 	if err != nil {
 		return err
 	}

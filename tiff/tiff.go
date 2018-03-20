@@ -48,6 +48,8 @@ type Tiff struct {
 	Dirs []*Dir
 	// The tiff's byte-encoding (i.e. big/little endian).
 	Order binary.ByteOrder
+	// Whether the tiff uses 32 or 64 bit IFD offsets
+	IsBig bool
 }
 
 // Decode parses tiff-encoded data from r and returns a Tiff struct that
@@ -74,13 +76,20 @@ func Decode(r ReadAtReaderSeeker) (*Tiff, error) {
 	// check for special tiff marker
 	var sp int16
 	err = binary.Read(r, t.Order, &sp)
-	if err != nil || 42 != sp {
+	if err != nil || (42 != sp && 43 != sp) {
 		return nil, newTiffError("could not find special tiff marker", err)
 	}
 
+	t.IsBig = 43 == sp
+	if t.IsBig {
+		_, err = r.Seek(8, 0)
+		if err != nil {
+			return nil, newTiffError("could not seek to first IFD", err)
+		}
+	}
+
 	// load offset to first IFD
-	var offset int32
-	err = binary.Read(r, t.Order, &offset)
+	offset, err := readOffset(r, t.Order, t.IsBig)
 	if err != nil {
 		return nil, newTiffError("could not read offset to first IFD", err)
 	}
@@ -90,13 +99,13 @@ func Decode(r ReadAtReaderSeeker) (*Tiff, error) {
 	prev := offset
 	for offset != 0 {
 		// seek to offset
-		_, err := r.Seek(int64(offset), 0)
+		_, err := r.Seek(offset, 0)
 		if err != nil {
 			return nil, newTiffError("seek to IFD failed", err)
 		}
 
 		// load the dir
-		d, offset, err = DecodeDir(r, t.Order)
+		d, offset, err = DecodeDir(r, t.Order, t.IsBig)
 		if err != nil {
 			if e, ok := err.(TiffError); ok && e.Err == io.EOF {
 				// Previous IFD had a pointer outside of the file. Ignore
@@ -114,6 +123,17 @@ func Decode(r ReadAtReaderSeeker) (*Tiff, error) {
 	}
 
 	return t, nil
+}
+
+func readOffset(r io.Reader, order binary.ByteOrder, isBigTIFF bool) (int64, error) {
+	if isBigTIFF {
+		var offset int64
+		err := binary.Read(r, order, &offset)
+		return offset, err
+	}
+	var offset int32
+	err := binary.Read(r, order, &offset)
+	return int64(offset), err
 }
 
 func (tf *Tiff) String() string {
@@ -135,19 +155,28 @@ type Dir struct {
 // is the offset to the next IFD.  The first read from r should be at the first
 // byte of the IFD. ReadAt offsets should generally be relative to the
 // beginning of the tiff structure (not relative to the beginning of the IFD).
-func DecodeDir(r ReadAtReader, order binary.ByteOrder) (d *Dir, offset int32, err error) {
+func DecodeDir(r ReadAtReader, order binary.ByteOrder, isBigTIFF bool) (d *Dir, offset int64, err error) {
 	d = new(Dir)
 
 	// get num of tags in ifd
-	var nTags int16
-	err = binary.Read(r, order, &nTags)
-	if err != nil {
-		return nil, 0, newTiffError("failed to read IFD tag count", err)
+	var nTags int64
+	if isBigTIFF {
+		err = binary.Read(r, order, &nTags)
+		if err != nil {
+			return nil, 0, newTiffError("failed to read IFD tag count", err)
+		}
+	} else {
+		var nTagsShort int16
+		err = binary.Read(r, order, &nTagsShort)
+		if err != nil {
+			return nil, 0, newTiffError("failed to read IFD tag count", err)
+		}
+		nTags = int64(nTagsShort)
 	}
 
 	// load tags
 	for n := 0; n < int(nTags); n++ {
-		t, err := DecodeTag(r, order)
+		t, err := DecodeTag(r, order, isBigTIFF)
 		if err == errUnhandledTagType {
 			continue
 		} else if err != nil {
@@ -157,7 +186,7 @@ func DecodeDir(r ReadAtReader, order binary.ByteOrder) (d *Dir, offset int32, er
 	}
 
 	// get offset to next ifd
-	err = binary.Read(r, order, &offset)
+	offset, err = readOffset(r, order, isBigTIFF)
 	if err != nil {
 		return nil, 0, newTiffError("failed to read offset to next IFD", err)
 	}

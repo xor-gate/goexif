@@ -55,6 +55,8 @@ const (
 	DTSRational          = 10
 	DTFloat              = 11
 	DTDouble             = 12
+	DTLong8              = 16
+	DTSLong8             = 17
 )
 
 var typeNames = map[DataType]string{
@@ -70,10 +72,12 @@ var typeNames = map[DataType]string{
 	DTSRational: "signed rational",
 	DTFloat:     "float",
 	DTDouble:    "double",
+	DTLong8:     "8byte long",
+	DTSLong8:    "8byte signed long",
 }
 
 // typeSize specifies the size in bytes of each type.
-var typeSize = map[DataType]uint32{
+var typeSize = map[DataType]uint64{
 	DTByte:      1,
 	DTAscii:     1,
 	DTShort:     2,
@@ -86,6 +90,8 @@ var typeSize = map[DataType]uint32{
 	DTSRational: 8,
 	DTFloat:     4,
 	DTDouble:    8,
+	DTLong8:     8,
+	DTSLong8:    8,
 }
 
 // Tag reflects the parsed content of a tiff IFD tag.
@@ -96,13 +102,13 @@ type Tag struct {
 	Type DataType
 	// Count is the number of type Type stored in the tag's value (i.e. the
 	// tag's value is an array of type Type and length Count).
-	Count uint32
+	Count uint64
 	// Val holds the bytes that represent the tag's value.
 	Val []byte
 	// ValOffset holds byte offset of the tag value w.r.t. the beginning of the
 	// reader it was decoded from. Zero if the tag value fit inside the offset
 	// field.
-	ValOffset uint32
+	ValOffset uint64
 
 	order     binary.ByteOrder
 	intVals   []int64
@@ -116,7 +122,7 @@ type Tag struct {
 // first read from r should be the first byte of the tag. ReadAt offsets should
 // generally be relative to the beginning of the tiff structure (not relative
 // to the beginning of the tag).
-func DecodeTag(r ReadAtReader, order binary.ByteOrder) (*Tag, error) {
+func DecodeTag(r ReadAtReader, order binary.ByteOrder, isBigTIFF bool) (*Tag, error) {
 	t := new(Tag)
 	t.order = order
 
@@ -130,9 +136,18 @@ func DecodeTag(r ReadAtReader, order binary.ByteOrder) (*Tag, error) {
 		return nil, newTiffError("tag type read failed", err)
 	}
 
-	err = binary.Read(r, order, &t.Count)
-	if err != nil {
-		return nil, newTiffError("tag component count read failed", err)
+	if isBigTIFF {
+		err = binary.Read(r, order, &t.Count)
+		if err != nil {
+			return nil, newTiffError("tag component count read failed", err)
+		}
+	} else {
+		var count uint32
+		err = binary.Read(r, order, &count)
+		if err != nil {
+			return nil, newTiffError("tag component count read failed", err)
+		}
+		t.Count = uint64(count)
 	}
 
 	// There seems to be a relatively common corrupt tag which has a Count of
@@ -151,9 +166,19 @@ func DecodeTag(r ReadAtReader, order binary.ByteOrder) (*Tag, error) {
 		return nil, errUnhandledTagType
 	}
 
+	maxValLen := uint64(4)
+	if isBigTIFF {
+		maxValLen = 8
+	}
 	valLen := size * t.Count
-	if valLen > 4 {
-		binary.Read(r, order, &t.ValOffset)
+	if valLen > maxValLen {
+		if isBigTIFF {
+			binary.Read(r, order, &t.ValOffset)
+		} else {
+			var valOffset uint32
+			binary.Read(r, order, &valOffset)
+			t.ValOffset = uint64(valOffset)
+		}
 
 		// Use a bytes.Buffer so we don't allocate a huge slice if the tag
 		// is corrupt.
@@ -172,7 +197,7 @@ func DecodeTag(r ReadAtReader, order binary.ByteOrder) (*Tag, error) {
 			return t, newTiffError("tag offset read failed", err)
 		}
 		// ignore padding.
-		if _, err = io.ReadFull(r, make([]byte, 4-valLen)); err != nil {
+		if _, err = io.ReadFull(r, make([]byte, maxValLen-valLen)); err != nil {
 			return t, newTiffError("tag offset read failed", err)
 		}
 
@@ -224,6 +249,16 @@ func (t *Tag) convertVals() error {
 			}
 			t.intVals[i] = int64(v)
 		}
+	case DTLong8:
+		var v uint64
+		t.intVals = make([]int64, int(t.Count))
+		for i := range t.intVals {
+			err := binary.Read(r, t.order, &v)
+			if err != nil {
+				return err
+			}
+			t.intVals[i] = int64(v)
+		}
 	case DTSByte:
 		var v int8
 		t.intVals = make([]int64, int(t.Count))
@@ -246,6 +281,16 @@ func (t *Tag) convertVals() error {
 		}
 	case DTSLong:
 		var v int32
+		t.intVals = make([]int64, int(t.Count))
+		for i := range t.intVals {
+			err := binary.Read(r, t.order, &v)
+			if err != nil {
+				return err
+			}
+			t.intVals[i] = int64(v)
+		}
+	case DTSLong8:
+		var v int64
 		t.intVals = make([]int64, int(t.Count))
 		for i := range t.intVals {
 			err := binary.Read(r, t.order, &v)
@@ -305,7 +350,7 @@ func (t *Tag) convertVals() error {
 	}
 
 	switch t.Type {
-	case DTByte, DTShort, DTLong, DTSByte, DTSShort, DTSLong:
+	case DTByte, DTShort, DTLong, DTLong8, DTSByte, DTSShort, DTSLong, DTSLong8:
 		t.format = IntVal
 	case DTRational, DTSRational:
 		t.format = RatVal
