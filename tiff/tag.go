@@ -333,7 +333,7 @@ func (t *Tag) typeErr(to Format) error {
 
 // Rat returns the tag's i'th value as a rational number. It returns a nil and
 // an error if this tag's Format is not RatVal or has a zero denominator.  It
-// panics i is out of range.
+// returns an error if i is out of range.
 func (t *Tag) Rat(i int) (*big.Rat, error) {
 	n, d, err := t.Rat2(i)
 	if err != nil {
@@ -347,7 +347,7 @@ func (t *Tag) Rat(i int) (*big.Rat, error) {
 
 // Rat2 returns the tag's i'th value as a rational number represented by a
 // numerator-denominator pair. It returns an error if the tag's Format is not
-// RatVal. It panics if i is out of range.
+// RatVal. It returns an error if i is out of range.
 func (t *Tag) Rat2(i int) (num, den int64, err error) {
 	if t.format != RatVal {
 		return 0, 0, t.typeErr(RatVal)
@@ -359,7 +359,7 @@ func (t *Tag) Rat2(i int) (num, den int64, err error) {
 }
 
 // Int64 returns the tag's i'th value as an integer. It returns an error if the
-// tag's Format is not IntVal. It panics if i is out of range.
+// tag's Format is not IntVal. It returns an error if i is out of range.
 func (t *Tag) Int64(i int) (int64, error) {
 	if t.format != IntVal {
 		return 0, t.typeErr(IntVal)
@@ -371,7 +371,7 @@ func (t *Tag) Int64(i int) (int64, error) {
 }
 
 // Int returns the tag's i'th value as an integer. It returns an error if the
-// tag's Format is not IntVal. It panics if i is out of range.
+// tag's Format is not IntVal. It returns an error if i is out of range.
 func (t *Tag) Int(i int) (int, error) {
 	if t.format != IntVal {
 		return 0, t.typeErr(IntVal)
@@ -383,7 +383,7 @@ func (t *Tag) Int(i int) (int, error) {
 }
 
 // Float returns the tag's i'th value as a float. It returns an error if the
-// tag's Format is not IntVal.  It panics if i is out of range.
+// tag's Format is not IntVal.  It returns an error if i is out of range.
 func (t *Tag) Float(i int) (float64, error) {
 	if t.format != FloatVal {
 		return 0, t.typeErr(FloatVal)
