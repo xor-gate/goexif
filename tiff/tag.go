@@ -137,7 +137,8 @@ func DecodeTag(r ReadAtReader, order binary.ByteOrder) (*Tag, error) {
 
 	// There seems to be a relatively common corrupt tag which has a Count of
 	// MaxUint32. This is probably not a valid value, so return early.
-	if t.Count == 1<<32-1 {
+	// Also check for invalid count values.
+	if t.Count == 1<<32-1 || t.Count >= 1<<31-1 {
 		return t, newTiffError("invalid Count offset in tag", nil)
 	}
 
@@ -351,6 +352,9 @@ func (t *Tag) Rat2(i int) (num, den int64, err error) {
 	if t.format != RatVal {
 		return 0, 0, t.typeErr(RatVal)
 	}
+	if i >= len(t.ratVals) {
+		return 0, 0, newTiffError("index out of range in ratVals", nil)
+	}
 	return t.ratVals[i][0], t.ratVals[i][1], nil
 }
 
@@ -359,6 +363,9 @@ func (t *Tag) Rat2(i int) (num, den int64, err error) {
 func (t *Tag) Int64(i int) (int64, error) {
 	if t.format != IntVal {
 		return 0, t.typeErr(IntVal)
+	}
+	if i >= len(t.intVals) {
+		return 0, newTiffError("index out of range in intVals", nil)
 	}
 	return t.intVals[i], nil
 }
@@ -369,6 +376,9 @@ func (t *Tag) Int(i int) (int, error) {
 	if t.format != IntVal {
 		return 0, t.typeErr(IntVal)
 	}
+	if i >= len(t.intVals) {
+		return 0, newTiffError("index out of range in intVals", nil)
+	}
 	return int(t.intVals[i]), nil
 }
 
@@ -377,6 +387,9 @@ func (t *Tag) Int(i int) (int, error) {
 func (t *Tag) Float(i int) (float64, error) {
 	if t.format != FloatVal {
 		return 0, t.typeErr(FloatVal)
+	}
+	if i >= len(t.floatVals) {
+		return 0, newTiffError("index out of range in floatVals", nil)
 	}
 	return t.floatVals[i], nil
 }
