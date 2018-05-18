@@ -187,12 +187,15 @@ func (t *Tag) convertVals() error {
 
 	switch t.Type {
 	case DTAscii:
-		if len(t.Val) > 0 {
-			if index := bytes.IndexByte(t.Val, '\x00'); index != -1 {
-				t.strVal = string(t.Val[:index])
-			} else {
-				t.strVal = string(t.Val)
-			}
+		if len(t.Val) <= 0 {
+			break
+		}
+		nullPos := bytes.IndexByte(t.Val, 0)
+		if nullPos == -1 {
+			t.strVal = string(t.Val)
+		} else {
+			// ignore all trailing NULL bytes, in case of a broken t.Count
+			t.strVal = string(t.Val[:nullPos])
 		}
 	case DTByte:
 		var v uint8
