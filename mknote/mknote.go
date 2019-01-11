@@ -50,12 +50,14 @@ func (_ *canon) Parse(x *exif.Exif) error {
 
 type nikonV3 struct{}
 
+func (_ *nikonV3) hasValidMakerNoteValue(m *tiff.Tag) bool {
+	return !(len(m.Val) < 6 || bytes.Compare(m.Val[:6], []byte("Nikon\000")) != 0)
+}
+
 // Parse decodes all Nikon makernote data found in x and adds it to x.
 func (_ *nikonV3) Parse(x *exif.Exif) error {
 	m, err := x.Get(exif.MakerNote)
-	if err != nil {
-		return nil
-	} else if bytes.Compare(m.Val[:6], []byte("Nikon\000")) != 0 {
+	if err != nil || !NikonV3.hasValidMakerNoteValue(m) {
 		return nil
 	}
 
