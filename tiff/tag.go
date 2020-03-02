@@ -351,6 +351,9 @@ func (t *Tag) Rat2(i int) (num, den int64, err error) {
 	if t.format != RatVal {
 		return 0, 0, t.typeErr(RatVal)
 	}
+	if len(t.ratVals[i]) < 2 {
+		return 0, 0, newTiffError("ratVals is not long enough", nil)
+	}
 	return t.ratVals[i][0], t.ratVals[i][1], nil
 }
 
